@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>符拉迪沃斯托克专属司机</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; touch-action: manipulation; }
+        body { background-color: #f3f4f6; min-height: 100vh; display: flex; flex-direction: column; }
+        
+        .header { background-color: #2563eb; color: white; padding: 16px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header h1 { font-size: 20px; font-weight: bold; }
+        .header p { font-size: 12px; opacity: 0.9; margin-top: 4px; }
+        .header .sub { font-size: 11px; opacity: 0.7; }
+        
+        .container { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+        
+        .label { display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 6px; }
+        .label-sub { font-size: 12px; color: #9ca3af; }
+        
+        .btn { width: 100%; padding: 14px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-green { background-color: #22c55e; color: white; }
+        .btn-green:active { background-color: #16a34a; }
+        .btn-blue { background-color: #2563eb; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-top: 8px; }
+        .btn-blue:active { background-color: #1d4ed8; }
+        .btn-yellow { background-color: #facc15; color: #1f2937; }
+        .btn-yellow:active { background-color: #eab308; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .input-field { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 16px; outline: none; }
+        .input-field:focus { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2); }
+        
+        .grid-destinations { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+        .btn-dest { background-color: white; border: 1px solid #e5e7eb; color: #374151; padding: 10px 8px; border-radius: 8px; font-size: 12px; cursor: pointer; text-align: left; line-height: 1.4; }
+        .btn-dest:active { background-color: #eff6ff; }
+        .btn-dest span { display: block; color: #9ca3af; font-size: 11px; }
+        
+        .price-box { background-color: #eff6ff; border: 2px solid #bfdbfe; border-radius: 12px; padding: 16px; text-align: center; }
+        .price-box .title { color: #1f2937; font-weight: bold; font-size: 16px; }
+        .price-box .amount { color: #2563eb; font-size: 32px; font-weight: bold; margin: 8px 0; }
+        .price-box .amount small { font-size: 16px; color: #6b7280; }
+        .price-box .warning { color: #ef4444; font-size: 14px; font-weight: bold; }
+        .price-box .includes { color: #6b7280; font-size: 12px; margin-top: 12px; line-height: 1.5; }
+        .price-box .includes small { color: #9ca3af; }
+        
+        .status-text { text-align: center; font-size: 14px; color: #6b7280; margin-top: 8px; }
+        .status-text span { font-size: 11px; }
+        .error-msg { color: #ef4444; font-weight: bold; display: none; text-align: center; font-size: 14px; margin-top: 8px; }
+        .hidden { display: none !important; }
+        
+        /* Скрытая панель водителя */
+        .driver-panel { display: none; position: fixed; bottom: 10px; right: 10px; z-index: 50; background: rgba(0,0,0,0.85); color: white; padding: 10px; border-radius: 8px; font-size: 12px; }
+        .driver-panel.active { display: block; }
+        .driver-btn { border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; margin-top: 4px; }
+    </style>
+</head>
+<body>
+
+    <div id="driverPanel" class="driver-panel">
+        Панель водителя:<br>
+        <button id="toggleStatusBtn" onclick="toggleDriverStatus()" class="driver-btn" style="background: #22c55e;">Я свободен</button>
+    </div>
+
+    <header class="header">
+        <h1 id="mainTitle">🚗 专属司机服务<br><span style="font-size:14px; font-weight:normal;">Сервис личного водителя</span></h1>
+        <p>符拉迪沃斯托克 (海参崴) 中文接送<br><span class="sub">Владивосток, доставка на китайском</span></p>
+    </header>
+
+    <main class="container">
+        
+        <div>
+            <label class="label">📍 我在哪里？(发送定位)<br><span class="label-sub">Где я? (Отправить геолокацию)</span></label>
+            <button id="getLocationBtn" class="btn btn-green">📍 获取我的位置</button>
+            <p id="locationStatus" class="status-text hidden">✅ 位置已获取 (Место определено)</p>
+        </div>
+
+        <button id="hotelReturnBlock" onclick="returnToHotel()" class="btn btn-yellow hidden">🔙 返回我的酒店 / Вернуться в мой отель</button>
+
+        <div>
+            <label class="label">🏁 我要去哪里？<br><span class="label-sub">Куда едем?</span></label>
+            <input type="text" id="destination" class="input-field" placeholder="输入地址 (Введите адрес)">
+            
+            <div class="grid-destinations">
+                <button onclick="setDest('鹰巢山 (Сопка)')" class="btn-dest">🦅 鹰巢山<span>Сопка</span></button>
+                <button onclick="setDest('金角湾大桥 (Золотой мост)')" class="btn-dest">🌉 金角湾大桥<span>Золотой мост</span></button>
+                <button onclick="setDest('托卡列夫灯塔 (Маяк)')" class="btn-dest">🏮 托卡列夫灯塔<span>Маяк</span></button>
+                <button onclick="setDest('海洋馆 (Океанариум)')" class="btn-dest">🐬 海洋馆<span>Океанариум</span></button>
+                <button onclick="setDest('C-56 潜艇 (Подлодка)')" class="btn-dest">🚢 C-56 潜艇<span>Подлодка</span></button>
+                <button onclick="setDest('俄罗斯岛大学 (О-в Русский)')" class="btn-dest">🏛️ 俄罗斯岛大学<span>О-в Русский</span></button>
+                <button onclick="setDest('老虎山 (Тигровая сопка)')" class="btn-dest">🐅 老虎山<span>Тигровая сопка</span></button>
+                <button onclick="setDest('马尔托夫商场 (Галерея)')" class="btn-dest">🛍️ 马尔托夫商场<span>ТЦ Галерея</span></button>
+                <button onclick="setDest('海参崴火车站 (Вокзал)')" class="btn-dest">🚂 火车站<span>Вокзал</span></button>
+                <button onclick="setDest('海参崴机场 (Аэропорт)')" class="btn-dest">✈️ 飞机场<span>Аэропорт</span></button>
+            </div>
+        </div>
+
+        <div>
+            <label class="label">📱 联系电话 (可选)<br><span class="label-sub">Телефон (по желанию)</span></label>
+            <input type="tel" id="phone" class="input-field" placeholder="+7 或 微信 WeChat ID">
+        </div>
+
+        <div class="price-box">
+            <div class="title">💰 费用说明 / Стоимость</div>
+            <div class="amount">1500 ₽ <small>/ 小时 (час)</small></div>
+            <div class="warning">⚠️ 最低 2 小时起 (Минимум 2 часа)</div>
+            <div class="includes">
+                ✅ 包含等待时间、协助购物<br>
+                ✅ 包含搬运行李、简单翻译<br>
+                <small>(Включено: ожидание, покупки, багаж, перевод)</small>
+            </div>
+        </div>
+
+        <button id="submitBtn" class="btn btn-blue">立即呼叫司机 📲<br><span style="font-size:14px; font-weight:normal;">Вызвать водителя</span></button>
+        <p id="busyMessage" class="error-msg">⚠️ 司机正在忙，请10分钟后再试<br><span style="font-size:12px; color:#9ca3af;">(Водитель занят, попробуйте через 10 мин)</span></p>
+
+        <p class="status-text" style="margin-top: 12px;">安全 · 快速 · 无需下载APP<br><span>Безопасно · Быстро · Без скачивания</span></p>
+    </main>
+
+    <script>
+        let userLat = null;
+        let userLon = null;
+        let isDriverBusy = localStorage.getItem('driverStatus') === 'busy';
+
+        // --- Панель водителя (5 кликов по заголовку) ---
+        let clickCount = 0;
+        document.getElementById('mainTitle').addEventListener('click', () => {
+            clickCount++;
+            if (clickCount >= 5) {
+                document.getElementById('driverPanel').classList.toggle('active');
+                clickCount = 0;
+            }
+        });
+
+        function toggleDriverStatus() {
+            isDriverBusy = !isDriverBusy;
+            localStorage.setItem('driverStatus', isDriverBusy ? 'busy' : 'free');
+            const btn = document.getElementById('toggleStatusBtn');
+            if (isDriverBusy) {
+                btn.innerText = 'Я ЗАНЯТ'; btn.style.background = '#ef4444';
+            } else {
+                btn.innerText = 'Я свободен'; btn.style.background = '#22c55e';
+            }
+            checkDriverStatus();
+        }
+
+        function checkDriverStatus() {
+            if (isDriverBusy) {
+                document.getElementById('submitBtn').classList.add('hidden');
+                document.getElementById('busyMessage').style.display = 'block';
+            } else {
+                document.getElementById('submitBtn').classList.remove('hidden');
+                document.getElementById('busyMessage').style.display = 'none';
+            }
+        }
+        checkDriverStatus();
+
+        // --- Логика сайта ---
+        function setDest(text) { document.getElementById('destination').value = text; }
+
+        function returnToHotel() {
+            const hLat = localStorage.getItem('hotelLat');
+            const hLon = localStorage.getItem('hotelLon');
+            if(hLat && hLon) {
+                document.getElementById('destination').value = "Мой отель / 我的酒店 (по гео)";
+                userLat = hLat; userLon = hLon;
+                document.getElementById('locationStatus').classList.remove('hidden');
+                document.getElementById('locationStatus').innerText = "✅ Навигация на отель";
+            }
+        }
+
+        document.getElementById('getLocationBtn').addEventListener('click', function() {
+            if (!navigator.geolocation) { alert("Ошибка геолокации"); return; }
+            this.innerText = "定位中..."; this.disabled = true;
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    userLat = pos.coords.latitude; userLon = pos.coords.longitude;
+                    localStorage.setItem('hotelLat', userLat); localStorage.setItem('hotelLon', userLon);
+                    document.getElementById('locationStatus').classList.remove('hidden');
+                    document.getElementById('hotelReturnBlock').classList.remove('hidden');
+                    this.innerText = "✅ 位置已确定"; this.style.backgroundColor = '#16a34a';
+                },
+                () => { alert("无法获取位置 (Не удалось получить место)"); this.innerText = "获取我的位置"; this.disabled = false; },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        });
+
+        document.getElementById('submitBtn').addEventListener('click', function() {
+            const dest = document.getElementById('destination').value;
+            const phone = document.getElementById('phone').value;
+            if (!dest) { alert("请输入目的地 (Введите адрес)"); return; }
+
+            this.innerText = "发送中..."; this.disabled = true;
+            let msg = `🚨 <b>Новый вызов (Китайский сайт)!</b>\n\n`;
+            msg += userLat ? `📍 <b>Откуда:</b> <a href="https://maps.google.com/maps?q=${userLat},${userLon}">Открыть ГЕО</a>\n` : `📍 <b>Откуда:</b> ❗️ БЕЗ ГЕО!\n`;
+            msg += `🏁 <b>Куда:</b> ${dest}\n`;
+            if (phone) msg += `📞 <b>Телефон:</b> ${phone}\n`;
+            msg += `🕒 ${new Date().toLocaleTimeString('ru-RU')}`;
+
+            // !!! ВСТАВЬ СВОИ ДАННЫЕ !!!
+            const TOKEN = 'ТВОЙ_ТОКЕН';
+            const CHAT_ID = 'ТВОЙ_CHAT_ID';
+
+            fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: CHAT_ID, text: msg, parse_mode: 'HTML' })
+            })
+            .then(r => r.json()).then(d => {
+                if(d.ok) { alert("✅ 司机已收到请求，请稍等！\n(Водитель в пути!)"); document.getElementById('destination').value=''; document.getElementById('phone').value=''; }
+                else alert("❌ Ошибка отправки");
+            })
+            .catch(() => alert("Сбой сети"))
+            .finally(() => { this.innerHTML = "立即呼叫司机 📲<br><span style='font-size:14px;font-weight:normal'>Вызвать водителя</span>"; this.disabled = false; });
+        });
+    </script>
+</body>
+</html>
