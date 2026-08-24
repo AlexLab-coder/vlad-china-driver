@@ -48,6 +48,14 @@
         .hidden { display: none !important; }
         .loading-spinner { border: 3px solid #f3f3f3; border-top: 3px solid #2563eb; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* НОВЫЙ СТИЛЬ ДЛЯ СТАТУСА ЗАКАЗА */
+        .order-status { display: none; text-align: center; margin-top: 12px; font-size: 16px; font-weight: bold; color: #1f2937; }
+        .order-status .badge { padding: 12px; border-radius: 10px; display: inline-block; margin-bottom: 6px; }
+        .badge-waiting { background: #fef08a; color: #854d0e; }
+        .badge-accepted { background: #dcfce7; color: #166534; }
+        .badge-departed { background: #dbeafe; color: #1e40af; }
+        .order-status .driver-info { display: block; font-size: 13px; font-weight: normal; color: #4b5563; margin-top: 4px; }
     </style>
 </head>
 <body>
@@ -87,7 +95,6 @@
                 <button onclick="setDest('老虎山 (Тигровая сопка)')" class="btn-dest">🐅 老虎山<span>Тигровая сопка</span></button>
                 <button onclick="setDest('马尔托夫商场 (Галерея)')" class="btn-dest">🛍️ 马尔托夫商场<span>ТЦ Галерея</span></button>
                 <button onclick="setDest('海参崴火车站 (Вокзал)')" class="btn-dest">🚂 火车站<span>ЖД Вокзал</span></button>
-                <button onclick="setDest('海参崴机场 (Аэропорт)')" class="btn-dest">✈️ 飞机场<span>Аэропорт Кневичи</span></button>
             </div>
         </div>
 
@@ -111,6 +118,12 @@
             <span id="btnText">立即呼叫司机 📲<br><span style="font-size:14px; font-weight:normal; margin-top:4px; display:block;">ВЫЗВАТЬ ВОДИТЕЛЯ</span></span>
         </button>
 
+        <!-- НОВЫЙ БЛОК ДЛЯ СТАТУСА ЗАКАЗА -->
+        <div id="orderStatusBlock" class="order-status">
+            <span id="orderStatusBadge" class="badge badge-waiting">⏳ 等待司机接单 / Ожидание водителя</span>
+            <span id="orderDriverInfo" class="driver-info"></span>
+        </div>
+
         <div id="busyMessage" class="error-msg">
             ⚠️ 司机正在忙，请10分钟后再试<br>
             <span style="font-size:12px; color:#7f1d1d; font-weight:normal;">(Водитель сейчас занят, попробуйте через 10 минут)</span>
@@ -122,8 +135,48 @@
     <script>
         let userLat = null;
         let userLon = null;
-
+        
+        // ВАЖНО: Инициализируем ID заказа
+        let currentOrderId = null;
+        
+        // РАБОЧИЙ URL: Ваш Cloudflare Worker
         const WORKER_URL = 'https://vlad-china-proxy.valexlabl.workers.dev'; 
+
+        // Функция для проверки статуса заказа
+        async function checkOrderStatus() {
+            if (!currentOrderId) return;
+            
+            try {
+                const res = await fetch(`${WORKER_URL}/get_order_status?id=${currentOrderId}`);
+                const data = await res.json();
+                
+                // Проверяем статус
+                if (data.status === 'accepted' || data.status === 'departed') {
+                    const badge = document.getElementById('orderStatusBadge');
+                    const driverInfo = document.getElementById('orderDriverInfo');
+                    
+                    if (data.status === 'accepted') {
+                        badge.className = 'badge badge-accepted';
+                        badge.innerText = '✅ 司机已接单 / Водитель принял заказ';
+                    } else if (data.status === 'departed') {
+                        badge.className = 'badge badge-departed';
+                        badge.innerText = '🚗 司机已出发 / Водитель выехал';
+                    }
+                    
+                    // Если водитель передал номер машины, показываем его
+                    if (data.driver_name) {
+                        driverInfo.innerText = `司机: ${data.driver_name} ${data.car_number ? '· 车牌: ' + data.car_number : ''}`;
+                    }
+                    
+                    document.getElementById('orderStatusBlock').classList.remove('hidden');
+                    clearInterval(statusCheckInterval); // Останавливаем опрос
+                }
+            } catch (e) {
+                // Ошибка сети - просто игнорируем, продолжаем опрос
+            }
+        }
+        
+        let statusCheckInterval = null;
 
         async function checkStatus() {
             try {
@@ -229,11 +282,19 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text: msg })
             })
-            .then(r => {
-                if(r.ok) { 
+            .then(r => r.json())
+            .then(data => {
+                if(data.ok) { 
+                    // ЗАПОМИНАЕМ ID ЗАКАЗА
+                    currentOrderId = data.order_id;
+                    
                     alert("✅ 司机已收到请求，请稍等！\n(Водитель получил заявку, ожидайте!)"); 
                     document.getElementById('destination').value=''; 
                     document.getElementById('phone').value=''; 
+                    
+                    // НАЧИНАЕМ ОПРАШИВАТЬ СТАТУС
+                    document.getElementById('orderStatusBlock').classList.remove('hidden');
+                    statusCheckInterval = setInterval(checkOrderStatus, 5000);
                 } else { 
                     alert("❌ Ошибка сервера"); 
                 }
